@@ -1,0 +1,268 @@
+name: React Native Build Cache Setup
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_refresh:
+        description: 'Force refresh all caches'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+env:
+  NODE_VERSION: '18'
+  JAVA_VERSION: '17'
+  ANDROID_HOME: ${{ github.workspace }}/android-sdk
+  ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
+
+jobs:
+  setup-cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: "📥 Checkout Repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: "⚙️ Setup Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+
+      - name: "📦 Install NPM Dependencies"
+        run: npm ci --legacy-peer-deps --no-audit --no-fund --prefer-offline
+
+      - name: "☕ Setup Java JDK"
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: "🤖 Setup Android SDK"
+        uses: android-actions/setup-android@v3
+        with:
+          android-sdk-directory: ${{ env.ANDROID_HOME }}
+
+      - name: "🔧 Make Gradlew Executable"
+        run: chmod +x android/gradlew
+
+      # STEP 1: Apply EXACT same template replacements as your build workflow
+      - name: "🔧 Apply Template Replacements for Cache"
+        run: |
+          echo "Applying template replacements for cache warming..."
+          
+          # Define cache values (same structure as your build workflow)
+          CACHE_WEBSITE="https://example.com"
+          CACHE_APP_NAME="CacheApp"
+          CACHE_VERSION_CODE="1"
+          CACHE_VERSION_NAME="1.0.0"
+          CACHE_NAME_SPACE="com.rn_project_template"
+          
+          # Extract middle segment (same logic as your build workflow)
+          NAME_SPACE_PARTS=(${CACHE_NAME_SPACE//./ })
+          if [ ${#NAME_SPACE_PARTS[@]} -ge 3 ]; then
+            MIDDLE_SEGMENT=${NAME_SPACE_PARTS[1]}
+          else
+            MIDDLE_SEGMENT=${NAME_SPACE_PARTS[-1]}
+          fi
+          
+          echo "Using namespace: $CACHE_NAME_SPACE, middle segment: $MIDDLE_SEGMENT"
+          
+          # Apply replacements in the EXACT same order as your build workflow
+          echo "Replacing in Gradle files..."
+          find android -type f \( -name "*.gradle" -o -name "*.kt" -o -name "*.xml" \) -exec sed -i "s/rn_project_template/$MIDDLE_SEGMENT/g" {} +
+          
+          echo "Replacing in app.json..."
+          sed -i "s/rn_project_template/$MIDDLE_SEGMENT/g" app.json
+          
+          echo "Replacing namespace in Kotlin files..."
+          sed -i "s/{{name_space}}/$CACHE_NAME_SPACE/g" android/app/src/main/java/com/rn_project_template/MainActivity.kt
+          sed -i "s|{{website_address}}|$CACHE_WEBSITE|g" App.tsx
+          sed -i "s/{{app_name}}/$CACHE_APP_NAME/g" app.json
+          sed -i "s/{{version_code}}/$CACHE_VERSION_CODE/g" android/app/build.gradle
+          sed -i "s/{{version_name}}/$CACHE_VERSION_NAME/g" android/app/build.gradle
+          sed -i "s/com.rn_project_template/$CACHE_NAME_SPACE/g" android/app/build.gradle
+          sed -i "s/com.rn_project_template/$CACHE_NAME_SPACE/g" android/app/src/main/java/com/rn_project_template/MainActivity.kt
+          sed -i "s/com.rn_project_template/$CACHE_NAME_SPACE/g" android/app/src/main/java/com/rn_project_template/MainApplication.kt
+          sed -i "s/{{name_space}}/$CACHE_NAME_SPACE/g" android/app/src/main/AndroidManifest.xml
+          sed -i "s/rn_project_template/$CACHE_APP_NAME/g" android/app/src/main/res/values/strings.xml
+          
+          echo "✓ All template replacements applied"
+
+      # STEP 2: Apply permissions (same as your build workflow)
+      - name: "📝 Update Android Manifest with Permissions"
+        run: |
+          MANIFEST_PATH="android/app/src/main/AndroidManifest.xml"
+          
+          # Create permissions (same as your build workflow)
+          cat > /tmp/permissions.xml << 'PERMS_EOF'
+          PERMS_EOF
+          
+          # Always add Internet and Network State (same as your build)
+          echo '    <uses-permission android:name="android.permission.INTERNET" />' >> /tmp/permissions.xml
+          echo '    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />' >> /tmp/permissions.xml
+          
+          # Use awk to replace the placeholder (same as your build)
+          awk '
+            /{{PERMISSIONS_PLACEHOLDER}}/ {
+              system("cat /tmp/permissions.xml")
+              next
+            }
+            {print}
+          ' "$MANIFEST_PATH" > /tmp/manifest_updated.xml
+          
+          mv /tmp/manifest_updated.xml "$MANIFEST_PATH"
+          
+          echo "✓ Permissions added to AndroidManifest.xml"
+
+      # STEP 3: Enable cleartext traffic (same as your build workflow)
+      - name: "🌐 Enable Cleartext Traffic"
+        run: |
+          MANIFEST_PATH="android/app/src/main/AndroidManifest.xml"
+          # Only add if not already present (same as your build)
+          if [ -f "$MANIFEST_PATH" ] && ! grep -q "android:usesCleartextTraffic" "$MANIFEST_PATH"; then
+            sed -i 's/<application/<application\n        android:usesCleartextTraffic="true"/g' "$MANIFEST_PATH"
+            echo "✓ Added usesCleartextTraffic attribute"
+          else
+            echo "✓ usesCleartextTraffic already present"
+          fi
+
+      # STEP 4: Create build-config.json (same structure as your backend)
+      - name: "📋 Create Build Configuration"
+        run: |
+          cat > build-config.json << 'EOF'
+          {
+            "website_address": "https://example.com",
+            "app_name": "CacheApp",
+            "version_code": "1",
+            "version_name": "1.0.0",
+            "name_space": "com.rn_project_template",
+            "has_custom_icon": false,
+            "build_type": "release",
+            "output_type": "apk",
+            "platform": "android",
+            "permissions": {},
+            "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          echo "✓ Build configuration created"
+
+      # STEP 5: Build both debug and release (guaranteed to work)
+      - name: "🏗️ Build Android App for Cache"
+        run: |
+          cd android
+          echo "Building Android app to warm caches..."
+          
+          # Use same Gradle options as your build workflow
+          export GRADLE_OPTS="-Xmx4g -XX:MaxMetaspaceSize=512m -Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.configureondemand=true"
+          export _JAVA_OPTIONS="-Xmx3g"
+          
+          # Build both variants (same commands as your build workflow)
+          echo "Building debug version..."
+          ./gradlew assembleDebug \
+            --build-cache \
+            --parallel \
+            --max-workers=4 \
+            --no-daemon \
+            -Dorg.gradle.jvmargs="-Xmx3g" \
+            -Pkotlin.incremental=true \
+            -Pkotlin.incremental.usePreciseJavaTracking=true
+          
+          echo "Building release version..."
+          ./gradlew assembleRelease \
+            --build-cache \
+            --parallel \
+            --max-workers=4 \
+            --no-daemon \
+            -Dorg.gradle.jvmargs="-Xmx3g" \
+            -Pkotlin.incremental=true \
+            -Pkotlin.incremental.usePreciseJavaTracking=true
+          
+          echo "✓ Cache builds completed successfully"
+
+      # STEP 6: Cache everything
+      - name: "📦 Cache NPM Dependencies"
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            node_modules
+          key: ${{ runner.os }}-npm-${{ env.NODE_VERSION }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-${{ env.NODE_VERSION }}-
+            ${{ runner.os }}-npm-
+
+      - name: "📦 Cache Android SDK"
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.ANDROID_HOME }}
+            ~/.android
+          key: ${{ runner.os }}-android-sdk-${{ env.JAVA_VERSION }}-${{ hashFiles('android/build.gradle', 'android/app/build.gradle') }}
+          restore-keys: |
+            ${{ runner.os }}-android-sdk-${{ env.JAVA_VERSION }}-
+            ${{ runner.os }}-android-sdk-
+
+      - name: "📦 Cache Gradle Wrapper"
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties') }}
+
+      - name: "📦 Cache Gradle Dependencies"
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/daemon
+            android/.gradle
+          key: ${{ runner.os }}-gradle-deps-${{ env.JAVA_VERSION }}-${{ hashFiles('android/build.gradle', 'android/app/build.gradle', 'android/gradle/wrapper/gradle-wrapper.properties') }}
+
+      - name: "📦 Cache Android Build Outputs"
+        uses: actions/cache@v4
+        with:
+          path: |
+            android/app/build/intermediates
+            android/app/build/tmp
+            android/app/.cxx
+            android/.gradle/buildOutputCleanup
+          key: ${{ runner.os }}-android-build-${{ hashFiles('android/build.gradle', 'android/app/build.gradle', 'android/app/src/**/*.kt', 'android/app/src/**/*.java') }}
+
+      - name: "📦 Cache Compiled Classes"
+        uses: actions/cache@v4
+        with:
+          path: |
+            android/app/build/tmp/kotlin-classes
+            android/app/build/intermediates/compile_app_classes_jar
+            android/app/build/intermediates/compile_library_classes_jar
+          key: ${{ runner.os }}-compiled-classes-${{ hashFiles('android/app/src/**/*.kt', 'android/app/src/**/*.java') }}
+
+      - name: "📦 Cache Dex Files"
+        uses: actions/cache@v4
+        with:
+          path: |
+            android/app/build/intermediates/dex
+            android/app/build/intermediates/external_libs_dex
+          key: ${{ runner.os }}-dex-${{ hashFiles('android/app/build.gradle', '**/package-lock.json') }}
+
+      - name: "✅ Cache Setup Complete"
+        run: |
+          echo "## 🚀 Cache Setup Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**All caches have been successfully warmed!**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Next builds should complete in 1-2 minutes with:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ NPM dependencies cached" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Android SDK cached" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Gradle dependencies cached" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Build outputs cached" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Compiled classes cached" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Dex files cached" >> $GITHUB_STEP_SUMMARY
