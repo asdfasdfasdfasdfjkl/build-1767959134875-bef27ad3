@@ -1,0 +1,19 @@
+{
+  "website_address": "https://ye-buna.com/signup",
+  "app_name": "Ye-Buna",
+  "version_code": "1",
+  "version_name": "1.0.0",
+  "name_space": "com.yebuna",
+  "has_custom_icon": true,
+  "build_type": "release",
+  "platform": "android",
+  "permissions": {
+    "camera": "disabled",
+    "location": "disabled",
+    "microphone": "disabled",
+    "notifications": "disabled",
+    "contacts": "disabled"
+  },
+  "created_at": "2026-01-09T11:45:39.281Z",
+  "app_icon": "data:image/png;base64,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"
+}
